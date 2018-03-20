@@ -1,0 +1,80 @@
+version: '3.5'
+
+networks: 
+  hydra-net:
+  scim2-net:
+  front-net:
+
+services:
+
+  pgres:
+    image: postgres:9.6
+    networks: 
+      - hydra-net
+    environment:
+      - POSTGRES_USER=hydra
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=hydra
+
+  store:
+    image: mongo:3.6
+    volumes:
+       - ./mongo/initdb.d:/docker-entrypoint-initdb.d
+    networks:
+      - scim2-net
+    environment:
+      - MONGO_INITDB_DATABASE=scim2
+
+  consent:
+    build:
+      context: ./consent
+    networks: 
+      - front-net
+      - scim2-net
+    environment:
+      - HYDRA_URL=http://hydra:4444
+      - HYDRA_CLIENT_ID=consent_app
+      - HYDRA_CLIENT_SECRET=thisisthesecret
+    depends_on:
+      - hydra
+      - scimd
+    ports:
+      - "3000:3000"
+    restart: unless-stopped   
+
+  scimd:
+    build: 
+      context: github.com/fabbricadigitale/scimd#develop
+    networks: 
+      - scim2-net
+    environment:
+      - SCIMD_STORAGE_NAME=scim2
+      - SCIMD_STORAGE_HOST=store
+      - SCIMD_PORT=8787
+    depends_on:
+      - store
+
+  hydra:
+    build:
+      context: ./hydra
+    networks: 
+      - hydra-net
+      - front-net
+    volumes:
+      - hydra-volume:/root
+    ports:
+      - "4444:4444"
+    environment:
+      - LOG_LEVEL=debug
+      - ISSUER=http://localhost:4444
+      - CONSENT_URL=http://localhost:3000/consent
+      - DATABASE_URL=postgres://hydra:secret@pgres:5432/hydra?sslmode=disable
+      - FORCE_ROOT_CLIENT_CREDENTIALS=admin:demo-password
+      - SYSTEM_SECRET=some-very-insecure-secret
+    depends_on:
+      - pgres
+    restart: unless-stopped
+    
+volumes:
+  hydra-volume:
+    driver: local
