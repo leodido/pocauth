@@ -47,10 +47,15 @@ services:
       context: github.com/fabbricadigitale/scimd#develop
     networks: 
       - scim2-net
+    volumes:
+      - ./scimd/service_provider_config.json:/tmp/service_provider_config.json
     environment:
       - SCIMD_STORAGE_NAME=scim2
       - SCIMD_STORAGE_HOST=store
+      - SCIMD_STORAGE_COLL=resources
       - SCIMD_PORT=8787
+      - SCIMD_SERVICEPROVIDERCONFIG=/tmp/service_provider_config.json
+      - SCIMD_DEBUG=true
     depends_on:
       - store
 
